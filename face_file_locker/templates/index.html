@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>🔐 Face File Locker</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link rel="icon" href="https://cdn-icons-png.flaticon.com/512/3064/3064197.png" type="image/png">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+
+  <style>
+    body {
+      background: #f8f9fa;
+      font-family: 'Segoe UI', sans-serif;
+    }
+    video {
+      border: 3px solid #dee2e6;
+      border-radius: 10px;
+      width: 100%;
+      max-width: 320px;
+    }
+    .card {
+      border-radius: 1rem;
+    }
+    .logo {
+      width: 40px;
+      margin-right: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container py-5 fade-in">
+    <div class="text-center mb-5">
+      <img src="https://cdn-icons-png.flaticon.com/512/3064/3064197.png" alt="Logo" class="logo" />
+      <h1 class="d-inline align-middle">Face File Locker</h1>
+      <p class="text-muted">Secure your files with your face.</p>
+    </div>
+
+    <div class="row g-4">
+      <!-- Webcam Section -->
+      <div class="col-md-6">
+        <div class="card p-4 shadow-sm">
+          <h4 class="mb-3">📷 Face Registration</h4>
+          <video id="video" autoplay playsinline></video>
+          <p class="small mt-2 text-muted">Please face the camera directly before clicking "Register".</p>
+          <button class="btn btn-primary mt-2 w-100" onclick="registerFace()">Register Face</button>
+        </div>
+      </div>
+
+      <!-- File Actions Section -->
+      <div class="col-md-6">
+        <div class="card p-4 shadow-sm mb-4">
+          <h4 class="mb-3">🔐 Encrypt File</h4>
+          <input type="file" id="encryptFile" class="form-control mb-2">
+          <button class="btn btn-success w-100" onclick="encryptFile()">Encrypt & Download</button>
+        </div>
+
+        <div class="card p-4 shadow-sm">
+          <h4 class="mb-3">🔓 Decrypt File</h4>
+          <input type="file" id="decryptFile" class="form-control mb-2" accept=".zip">
+          <button class="btn btn-warning w-100" onclick="decryptFile()">Decrypt & Download</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- JavaScript -->
+  <script>
+    const video = document.getElementById("video");
+
+    navigator.mediaDevices.getUserMedia({ video: true }).then(stream => {
+      video.srcObject = stream;
+    });
+
+    function captureImage() {
+      const canvas = document.createElement("canvas");
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(video, 0, 0);
+      return canvas.toDataURL("image/jpeg");
+    }
+
+    async function registerFace() {
+      const image = captureImage();
+      const res = await fetch("/register_face", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ image })
+      });
+      const data = await res.json();
+      alert(data.success ? "✅ Face registered!" : "❌ Failed: " + data.error);
+    }
+
+    async function encryptFile() {
+      const fileInput = document.getElementById("encryptFile");
+      if (!fileInput.files.length) return alert("⚠️ Choose a file first.");
+      const formData = new FormData();
+      formData.append("file", fileInput.files[0]);
+      const res = await fetch("/encrypt", {
+        method: "POST",
+        body: formData
+      });
+      if (res.ok) {
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "protected.zip";
+        a.click();
+      } else {
+        alert("❌ Encryption failed.");
+      }
+    }
+
+    async function decryptFile() {
+      const fileInput = document.getElementById("decryptFile");
+      if (!fileInput.files.length) return alert("⚠️ Choose a ZIP file.");
+      const image = captureImage();
+      const formData = new FormData();
+      formData.append("file", fileInput.files[0]);
+      formData.append("image", image);
+      const res = await fetch("/decrypt", {
+        method: "POST",
+        body: formData
+      });
+      if (res.ok) {
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "decrypted_file";
+        a.click();
+      } else {
+        alert("❌ Decryption failed.");
+      }
+    }
+  </script>
+</body>
+</html>
